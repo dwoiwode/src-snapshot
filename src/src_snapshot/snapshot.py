@@ -1,8 +1,10 @@
 import datetime
 import json
+import os
+import tempfile
 from pathlib import Path
 from typing import Optional, Iterable
-from zipfile import ZipFile
+from zipfile import ZipFile, ZIP_DEFLATED
 
 from src_snapshot.utils import git_diff, create_metadata, zip_file_folders, get_main_script_path
 
@@ -16,9 +18,13 @@ def create_snapshot(
         add_git_diff=True,
         add_metadata=True
 ):
-    # Prepare source folder
-    if not isinstance(source_folders, (tuple, list, set)):
+    # Prepare source folders (default: current directory)
+    if source_folders is None:
+        source_folders = (Path.cwd(),)
+    elif isinstance(source_folders, (str, Path)):
         source_folders = (source_folders,)
+    else:
+        source_folders = tuple(source_folders)
 
     # Prepare output folder
     filepath = Path(filepath)
@@ -27,11 +33,23 @@ def create_snapshot(
 
     filepath.parent.mkdir(exist_ok=True, parents=True)
 
-    # Create zip file
-    with ZipFile(filepath, 'w') as zip_file:
+    # Write to a temp file next to the target and rename at the end,
+    # so a failed run never leaves a half-written zip behind.
+    fd, tmp_name = tempfile.mkstemp(dir=filepath.parent, prefix=f".{filepath.name}.", suffix=".tmp")
+    os.close(fd)
+    tmp_path = Path(tmp_name)
+    try:
+        _write_zip(tmp_path, source_folders, suffixes, add_main_file, add_git_diff, add_metadata)
+        os.replace(tmp_path, filepath)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
+def _write_zip(zip_path, source_folders, suffixes, add_main_file, add_git_diff, add_metadata):
+    with ZipFile(zip_path, 'w', compression=ZIP_DEFLATED) as zip_file:
         n = 0
         for source_folder in source_folders:
-            source_folder = Path(source_folder)
+            source_folder = Path(source_folder).resolve()
             n += zip_file_folders(zip_file, source_folder, source_folder.name, suffixes=suffixes)
 
         # Add main file
