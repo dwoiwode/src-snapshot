@@ -1,5 +1,6 @@
 import datetime
 import getpass
+import importlib.metadata
 import inspect
 import os
 import platform
@@ -13,12 +14,13 @@ import psutil
 
 
 def dependencies():
-    # full freeze can be large; keep it optional or filter if needed
-    try:
-        out = subprocess.check_output([sys.executable, "-m", "pip", "freeze"])
-        return out.decode().splitlines()
-    except Exception:
-        return []
+    """Installed distributions as sorted ``name==version`` strings (like ``pip freeze``)."""
+    packages = {}
+    for dist in importlib.metadata.distributions():
+        name = dist.metadata["Name"]
+        if name:  # skip broken installs without metadata
+            packages.setdefault(name, dist.version)
+    return [f"{name}=={version}" for name, version in sorted(packages.items(), key=lambda kv: kv[0].lower())]
 
 
 def environment_info():
@@ -118,7 +120,12 @@ def get_main_script_path() -> Optional[Path]:
     while current_frame is not None:
         # Check if the module is the main module
         if current_frame.f_globals.get("__name__") == "__main__":
-            return Path(current_frame.f_globals.get("__file__"))
+            main_file = current_frame.f_globals.get("__file__")
+            # No __file__ in REPLs, Jupyter or `python -c`
+            if main_file is None:
+                return None
+            main_file = Path(main_file)
+            return main_file if main_file.is_file() else None
         current_frame = current_frame.f_back
     return None
 

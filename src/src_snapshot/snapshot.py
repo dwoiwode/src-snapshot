@@ -2,6 +2,7 @@ import datetime
 import json
 import os
 import tempfile
+import warnings
 from pathlib import Path
 from typing import Optional, Iterable
 from zipfile import ZipFile, ZIP_DEFLATED
@@ -14,9 +15,9 @@ def create_snapshot(
         *,
         source_folders: Optional[Path | str | Iterable[Path | str]] = None,
         suffixes: Optional[str | tuple[str]] = (".py", ".yaml"),
-        add_main_file=True,
-        add_git_diff=True,
-        add_metadata=True
+        add_main_file: bool | Path | str = True,
+        add_git_diff: bool = True,
+        add_metadata: bool = True
 ):
     # Prepare source folders (default: current directory)
     if source_folders is None:
@@ -54,17 +55,27 @@ def _write_zip(zip_path, source_folders, suffixes, add_main_file, add_git_diff, 
 
         # Add main file
         if add_main_file:
-            n += 1
             if isinstance(add_main_file, (Path, str)):
                 main_file = Path(add_main_file)
+                if not main_file.is_file():
+                    raise FileNotFoundError(f"Main file not found: {main_file.absolute()}")
             else:
                 main_file = get_main_script_path()
-            main_file_content = (
-                f"# Originally copied on {datetime.datetime.now():%Y-%m-%d %H:%M:%S} from {main_file.absolute()}\n\n"
-                f"{main_file.read_text(encoding='utf-8')}"
-            )
 
-            zip_file.writestr('__main__.py', main_file_content)
+            if main_file is None:
+                # e.g. Jupyter, REPL or `python -c`: nothing to copy
+                warnings.warn(
+                    "Could not determine the main script (interactive session?); "
+                    "skipping __main__.py. Pass add_main_file=<path> to set it explicitly.",
+                    stacklevel=3,
+                )
+            else:
+                main_file_content = (
+                    f"# Originally copied on {datetime.datetime.now():%Y-%m-%d %H:%M:%S} from {main_file.absolute()}\n\n"
+                    f"{main_file.read_text(encoding='utf-8')}"
+                )
+                zip_file.writestr('__main__.py', main_file_content)
+                n += 1
 
         # Add git diff
         if add_git_diff:

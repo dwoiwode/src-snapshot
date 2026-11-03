@@ -1,9 +1,39 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
-name = "src_snapshot"
+name = "src-snapshot"
 version = "0.1.0"
 description = "Lightweight utility to snapshot your source code into a zip archive for reproducible experiments."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Dominik Woiwode" }]
 requires-python = ">=3.10"
 dependencies = [
-    "psutil"
+    "psutil",
 ]
+keywords = ["reproducibility", "snapshot", "experiments", "research", "provenance", "slurm"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: System :: Archiving",
+]
+
+[project.urls]
+Homepage = "https://github.com/dwoiwode/src-snapshot"
+Repository = "https://github.com/dwoiwode/src-snapshot"
+Issues = "https://github.com/dwoiwode/src-snapshot/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/src_snapshot"]
