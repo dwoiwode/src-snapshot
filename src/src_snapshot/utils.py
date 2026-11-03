@@ -53,7 +53,11 @@ def git_info():
     }
 
 def git_diff():
-    return subprocess.check_output("git diff", stderr=subprocess.DEVNULL).decode().strip()
+    try:
+        return subprocess.check_output(["git", "diff"], stderr=subprocess.DEVNULL).decode().strip()
+    except (OSError, subprocess.CalledProcessError):
+        # git missing or not inside a repository
+        return ""
 
 def create_metadata():
     now = datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -152,17 +156,20 @@ def gpu_info():
             "--query-gpu=index,name,memory.total",
             "--format=csv,noheader,nounits"
         ]).decode().strip().splitlines()
-    except FileNotFoundError:
-        # Nvidia-SMI not found -> Return 0
+    except (OSError, subprocess.CalledProcessError):
+        # nvidia-smi missing or failing (e.g. no driver) -> no GPU info
         return []
 
     gpus = []
     for line in out:
-        idx, name, mem = [x.strip() for x in line.split(",")]
+        try:
+            idx, name, mem = [x.strip() for x in line.split(",")]
+        except ValueError:
+            continue
         gpus.append({
-            "index": int(idx),
+            "index": int(idx) if idx.isdigit() else idx,
             "name": name,
-            "memory_mb": int(mem),
+            "memory_mb": int(mem) if mem.isdigit() else None,
         })
     return gpus
 
